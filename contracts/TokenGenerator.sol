@@ -1,84 +1,35 @@
-pragma solidity 0.8.0;
+pragma solidity 0.6.10;
 //SPDX-License-Identifier: MIT
+import "./ERC20Token.sol";
 
-contract ERC20TokenTemplate {
-    string public name;
-    string public symbol;
-    uint256 public decimals;
-
-    uint256 public supply;
-    address public founder;
-
-    mapping(address => uint256) public balances;
-    mapping(address => mapping(address => uint256)) allowed;
-
+contract TokenGenerator {
     
-    event Transfer(address indexed from, address indexed to, uint256 tokens);
-    event Approval(
-        address indexed tokenOwner,
-        address indexed spender,
-        uint256 tokens
-    );
+    address[] public deployedTokensAddresses;
+    address payable owner;
     
-    constructor(string memory _name, string memory _symbol, uint256 _decimals, uint256 _supply, address tokenOwner) public {
-        name = _name;
-        symbol = _symbol;
-        decimals = _decimals;
-        supply = _supply * 10**_decimals;
-        founder = tokenOwner;
-        balances[founder] = supply;
+    constructor() public {
+        owner = msg.sender;
+    }
+    
+    function generateToken(string memory _name, string memory _symbol, uint256 _decimals, uint256 _supply, address payable tokenOwner ) public returns(address) {
+        require(keccak256(bytes(_name)) != keccak256(bytes("")) && keccak256(bytes(_symbol))!=keccak256(bytes("")) && _decimals>=0 && _supply > 0,"Check the inputs");
+        require(address(this).balance > 0.05 ether,"Not enough balance in parent contract");
+        address newToken = address(new ERC20Token(_name,_symbol,_decimals, _supply, tokenOwner));
+        deployedTokensAddresses.push(newToken);
+        tokenOwner.transfer(0.05 ether);
+        return newToken;
     }
 
-    function allowance(address tokenOwner, address spender)
-        public
-        view
-        returns (uint256 remaining)
-    {
-        return allowed[tokenOwner][spender];
+    function getAllAddresses() public view returns (address[] memory){
+        return deployedTokensAddresses;
     }
 
-    function approve(address spender, uint256 tokens)
-        public
-        returns (bool success)
-    {
-        require(balances[msg.sender] >= tokens,"Not enough balance");
-        require(tokens > 0,"Tokens <= 0");
-        allowed[msg.sender][spender] = tokens;
-        emit Approval(msg.sender, spender, tokens);
-        return true;
+    function addMoney() public payable returns(string memory) {
+        require(msg.sender == owner, "Only owner is allowed!");
+        return 'added';
     }
-
-    function transferFrom(address from, address to, uint256 tokens)
-        public
-        returns (bool success)
-    {
-        require(balances[from] >= tokens,"Not enough balance");
-        balances[from] -= tokens;
-        balances[to] += tokens;
-        emit Transfer(from, to, tokens);
-        return true;
-    }
-
-    function totalSupply() public view returns (uint256) {
-        return supply;
-    }
-
-    function balanceOf(address tokenOwner)
-        public
-        view
-        returns (uint256 balance)
-    {
-        return balances[tokenOwner];
-    }
-
-    function transfer(address to, uint256 tokens)
-        public
-        returns (bool success)
-    {
-        require(tokens > 0, "token <= 0 ");
-        balances[to] += tokens;
-        balances[msg.sender] -= tokens;
-        emit Transfer(msg.sender, to, tokens);
-        return true;
+    function withdraw() public {
+        require(msg.sender == owner, "Only owner is allowed!");
+        owner.transfer(address(this).balance);
     }
 }
